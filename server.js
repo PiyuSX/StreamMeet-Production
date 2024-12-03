@@ -4,19 +4,21 @@ import { Server } from 'socket.io';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
+// Resolve current file and directory paths
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const app = express();
 const server = createServer(app);
 
-// Serve static files from the dist directory
-app.use(express.static(join(__dirname, 'dist')));
+// Serve static files from the current directory ('dist')
+app.use(express.static(__dirname));
 
+// Socket.io setup with CORS configuration
 const io = new Server(server, {
   cors: {
-    origin: process.env.NODE_ENV === 'production' 
-      ? false  // In production, same-origin requests only
+    origin: process.env.NODE_ENV === 'production'
+      ? false // In production, allow only same-origin requests
       : "http://localhost:5173", // In development
     methods: ["GET", "POST"]
   }
@@ -37,11 +39,11 @@ io.on('connection', (socket) => {
     if (waitingUsers[type].size > 0) {
       const peer = waitingUsers[type].values().next().value;
       waitingUsers[type].delete(peer);
-      
+
       const room = `${socket.id}-${peer}`;
       socket.join(room);
       io.sockets.sockets.get(peer)?.join(room);
-      
+
       io.to(room).emit('chatReady', room);
       return room;
     } else {
@@ -60,9 +62,9 @@ io.on('connection', (socket) => {
       socket.to(currentRoom).emit('peerDisconnected');
       socket.leave(currentRoom);
     }
-    
+
     waitingUsers[type].delete(socket.id);
-    
+
     currentType = type;
     currentRoom = findMatch(type);
   });
@@ -96,9 +98,10 @@ io.on('connection', (socket) => {
 
 // Catch all routes and serve index.html for client-side routing
 app.get('*', (req, res) => {
-  res.sendFile(join(__dirname, 'dist', 'index.html'));
+  res.sendFile(join(__dirname, 'index.html'));
 });
 
+// Start the server
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
